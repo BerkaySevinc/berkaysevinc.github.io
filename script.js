@@ -1,7 +1,7 @@
 const CACHE_KEY = 'gh_pages_cache';
 const FETCH_LOG_KEY = 'gh_fetch_log';
 const RATE_WINDOW = 60 * 60 * 1000;
-const MAX_FETCHES_PER_HOUR = 10;
+const MAX_FETCHES_PER_HOUR = 11;
 
 // Detect GitHub username from hostname (e.g. "berkaysevinc.github.io" → "berkaysevinc")
 function getGitHubUser() {
