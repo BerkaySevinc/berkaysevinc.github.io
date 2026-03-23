@@ -113,7 +113,7 @@ function renderCards(repos, username) {
 // Set dynamic UI elements
 function setupUI(username) {
   const title = document.getElementById('site-title');
-  title.innerHTML = `${username}<span>.</span>`;
+  title.innerHTML = `${username}`;
 
   const footerLink = document.getElementById('footer-link');
   footerLink.href = `https://github.com/${username}`;
@@ -157,7 +157,7 @@ async function loadProjects() {
     const repos = await res.json();
     const pagesRepos = repos
       .filter(r => r.has_pages && r.name !== `${username}.github.io`)
-      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      .sort((a, b) => b.stargazers_count - a.stargazers_count || new Date(b.pushed_at) - new Date(a.pushed_at))
       .map(r => ({ name: r.name, description: r.description }));
 
     setCache(pagesRepos);
