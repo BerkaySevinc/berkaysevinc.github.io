@@ -124,6 +124,9 @@ body {
   max-width: 1080px;
   margin: 0 auto;
   padding: 0 1.5rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Nav */
@@ -301,6 +304,8 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1rem;
   padding-bottom: 4rem;
+  flex: 1;
+  align-content: start;
 }
 
 /* Card */
