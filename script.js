@@ -175,8 +175,6 @@ async function loadProjects() {
   }
 
   showSkeletons();
-  // Tarayıcıya skeleton'ları paint etmesi için bir frame ver
-  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   try {
     recordFetch();
