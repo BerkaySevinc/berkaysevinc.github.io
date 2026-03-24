@@ -3,9 +3,12 @@ const FETCH_LOG_KEY = 'gh_fetch_log';
 const RATE_WINDOW = 60 * 60 * 1000;
 const MAX_FETCHES_PER_HOUR = 11;
 
-// Detect GitHub username from hostname (e.g. "berkaysevinc.github.io" → "berkaysevinc")
+// Detect GitHub username from hostname
 function getGitHubUser() {
   const host = window.location.hostname;
+
+  return "berkaysevinc"
+
   if (host.endsWith('.github.io')) {
     return host.replace('.github.io', '');
   }
@@ -67,7 +70,7 @@ function setCache(data) {
   localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
 }
 
-// UI helpers
+// UI
 const grid = document.getElementById('grid');
 const status = document.getElementById('status');
 
@@ -85,11 +88,17 @@ function showSkeletons() {
   `).join('');
 }
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 function renderCards(repos, username) {
   if (repos.length === 0) {
     grid.innerHTML = `
-      <div class="empty" style="grid-column: 1 / -1;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <div class="empty">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
           <polyline points="13 2 13 9 20 9"/>
         </svg>
@@ -100,24 +109,24 @@ function renderCards(repos, username) {
 
   grid.innerHTML = repos.map((repo, i) => {
     const url = `https://${username}.github.io/${repo.name}/`;
-    const displayName = formatRepoName(repo.name);
-    const desc = repo.description || 'No description';
+    const displayName = escapeHtml(formatRepoName(repo.name));
+    const desc = escapeHtml(repo.description || 'No description');
+    const delay = 0.6 + i * 0.08;
     return `
-      <a href="${url}" class="card fade-in" style="animation-delay: ${i * 0.05}s" target="_blank" rel="noopener">
-        <div class="card-name">${displayName}<span class="arrow">→</span></div>
+      <a href="${url}" class="card card-enter" style="animation-delay: ${delay}s" data-index="${String(i + 1).padStart(2, '0')}" target="_blank" rel="noopener">
+        <div class="card-name">${displayName}<span class="card-arrow">→</span></div>
         <div class="card-desc">${desc}</div>
       </a>`;
   }).join('');
 }
 
-// Set dynamic UI elements
+// Dynamic UI
 function setupUI(username) {
-  const title = document.getElementById('site-title');
-  title.innerHTML = `${username}`;
+  document.getElementById('site-title').textContent = username;
 
   const footerLink = document.getElementById('footer-link');
   footerLink.href = `https://github.com/${username}`;
-  footerLink.textContent = `github.com/${username}`;
+  footerLink.querySelector('span').textContent = `github.com/${username}`;
 
   document.title = `${username} — Projects`;
 }
@@ -134,7 +143,6 @@ async function loadProjects() {
   setupUI(username);
   showSkeletons();
 
-  // Rate limit reached — fall back to cache
   if (!canFetch()) {
     const cached = getCached();
     if (cached) {
@@ -147,7 +155,6 @@ async function loadProjects() {
     return;
   }
 
-  // Always fetch fresh data
   try {
     recordFetch();
     const res = await fetch(`https://api.github.com/users/${username}/repos?per_page=100&sort=updated`);
