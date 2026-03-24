@@ -3,15 +3,18 @@ const FETCH_LOG_KEY = 'gh_fetch_log';
 const RATE_WINDOW = 60 * 60 * 1000;
 const MAX_FETCHES_PER_HOUR = 11;
 
-// Detect GitHub username from hostname
+// Detect GitHub username from hostname or local folder name
 function getGitHubUser() {
   const host = window.location.hostname;
-
-  return "berkaysevinc"
 
   if (host.endsWith('.github.io')) {
     return host.replace('.github.io', '');
   }
+
+  // Local dev: extract from folder name like
+  const match = decodeURIComponent(window.location.pathname).match(/([^/]+)\.github\.io/i);
+  if (match) return match[1];
+
   return null;
 }
 
@@ -111,7 +114,7 @@ function renderCards(repos, username) {
     const url = `https://${username}.github.io/${repo.name}/`;
     const displayName = escapeHtml(formatRepoName(repo.name));
     const desc = escapeHtml(repo.description || 'No description');
-    const delay = 0.6 + i * 0.08;
+    const delay = i * 0.08;
     return `
       <a href="${url}" class="card card-enter" style="animation-delay: ${delay}s" data-index="${String(i + 1).padStart(2, '0')}" target="_blank" rel="noopener">
         <div class="card-name">${displayName}<span class="card-arrow">→</span></div>
