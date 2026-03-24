@@ -1,7 +1,6 @@
 const CACHE_KEY = 'gh_pages_cache';
-const FETCH_LOG_KEY = 'gh_fetch_log';
-const RATE_WINDOW = 60 * 60 * 1000;
-const MAX_FETCHES_PER_HOUR = 11;
+const CACHE_TTL = 60 * 60 * 1000;
+const TIMER_TOLERANCE = 300;
 
 // Detect GitHub username from hostname or local folder name
 function getGitHubUser() {
@@ -36,41 +35,25 @@ document.querySelector('.theme-toggle').addEventListener('click', () => {
   setTheme(current === 'dark' ? 'light' : 'dark');
 });
 
-// Fetch rate tracking
-function getFetchLog() {
-  try {
-    return JSON.parse(localStorage.getItem(FETCH_LOG_KEY)) || [];
-  } catch { return []; }
-}
-
-function pruneFetchLog() {
-  const cutoff = Date.now() - RATE_WINDOW;
-  const log = getFetchLog().filter(t => t > cutoff);
-  localStorage.setItem(FETCH_LOG_KEY, JSON.stringify(log));
-  return log;
-}
-
-function canFetch() {
-  return pruneFetchLog().length < MAX_FETCHES_PER_HOUR;
-}
-
-function recordFetch() {
-  const log = pruneFetchLog();
-  log.push(Date.now());
-  localStorage.setItem(FETCH_LOG_KEY, JSON.stringify(log));
-}
-
 // Cache
 function getCached() {
   try {
     const raw = JSON.parse(localStorage.getItem(CACHE_KEY));
-    if (raw && raw.ts && raw.data) return raw;
-  } catch {}
+    if (raw && raw.ts != null && raw.data && (Date.now() - raw.ts) < CACHE_TTL) return raw;
+  } catch { }
   return null;
 }
 
 function setCache(data) {
-  localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+  const ts = Date.now();
+  localStorage.setItem(CACHE_KEY, JSON.stringify({ ts, data }));
+  return ts;
+}
+
+function formatAge(ts) {
+  const minutes = Math.floor((Date.now() - ts + TIMER_TOLERANCE) / 60000);
+  if (minutes < 1) return 'Updated just now';
+  return `Updated ${minutes} minute${minutes === 1 ? '' : 's'} ago`;
 }
 
 // UI
@@ -86,6 +69,7 @@ function showSkeletons() {
     <div class="skeleton-card">
       <div class="skeleton-line title"></div>
       <div class="skeleton-line desc1"></div>
+      <div class="skeleton-line desc2"></div>
       <div class="skeleton-line desc2"></div>
     </div>
   `).join('');
@@ -152,7 +136,66 @@ function setupUI(username) {
 }
 
 // Main
+let statusInterval = null;
+let minuteTimeout = null;
+let expiryTimeout = null;
+let isLoading = false;
+
+function scheduleExpiry(cacheTs) {
+  if (expiryTimeout) clearTimeout(expiryTimeout);
+  const msUntilExpiry = (cacheTs + CACHE_TTL) - Date.now();
+  expiryTimeout = setTimeout(() => {
+    if (statusInterval) clearInterval(statusInterval);
+    if (minuteTimeout) clearTimeout(minuteTimeout);
+    statusInterval = null;
+    minuteTimeout = null;
+    expiryTimeout = null;
+    localStorage.removeItem(CACHE_KEY);
+    loadProjects();
+  }, msUntilExpiry);
+}
+
+function tick(cacheTs) {
+  scheduleExpiry(cacheTs);
+  if ((cacheTs + CACHE_TTL) - Date.now() < TIMER_TOLERANCE) return false;
+  showStatus('', formatAge(cacheTs));
+  return true;
+}
+
+function startStatusTicker(cacheTs) {
+  if (statusInterval) clearInterval(statusInterval);
+  if (minuteTimeout) clearTimeout(minuteTimeout);
+
+  const msToNextMinute = 60000 - ((Date.now() - cacheTs) % 60000);
+  minuteTimeout = setTimeout(() => {
+    minuteTimeout = null;
+    if (tick(cacheTs)) {
+      statusInterval = setInterval(() => tick(cacheTs), 60000);
+    }
+  }, msToNextMinute);
+
+  scheduleExpiry(cacheTs);
+}
+
+function onPageFocus() {
+  const cached = getCached();
+  if (cached) {
+    showStatus('', formatAge(cached.ts));
+    startStatusTicker(cached.ts);
+  } else if (getGitHubUser()) {
+    loadProjects();
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') onPageFocus();
+});
+
+window.addEventListener('online', onPageFocus);
+
 async function loadProjects() {
+  if (isLoading) return;
+
   const username = getGitHubUser();
 
   if (!username) {
@@ -162,22 +205,19 @@ async function loadProjects() {
 
   setupUI(username);
 
-  if (!canFetch()) {
-    const cached = getCached();
-    if (cached) {
-      renderCards(cached.data, username);
-      showStatus('cached', 'Loaded from cache (rate limit reached)');
-    } else {
-      renderCards([], username);
-      showStatus('error', 'Rate limit reached and no cache available');
-    }
+  const cached = getCached();
+  if (cached) {
+    renderCards(cached.data, username);
+    showStatus('', formatAge(cached.ts));
+    startStatusTicker(cached.ts);
     return;
   }
 
+  isLoading = true;
+  showStatus('', 'Loading\u2026');
   showSkeletons();
 
   try {
-    recordFetch();
     const res = await fetch(`https://api.github.com/users/${username}/repos?per_page=100&sort=updated`);
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -188,19 +228,15 @@ async function loadProjects() {
       .sort((a, b) => b.stargazers_count - a.stargazers_count || new Date(b.pushed_at) - new Date(a.pushed_at))
       .map(r => ({ name: r.name, description: r.description }));
 
-    setCache(pagesRepos);
+    const ts = setCache(pagesRepos);
     renderCards(pagesRepos, username);
-    const remaining = MAX_FETCHES_PER_HOUR - pruneFetchLog().length;
-    showStatus('', `Updated just now · ${remaining} requests remaining this hour`);
+    showStatus('', 'Updated just now');
+    startStatusTicker(ts);
   } catch (err) {
-    const cached = getCached();
-    if (cached) {
-      renderCards(cached.data, username);
-      showStatus('error', `API error — loaded from cache`);
-    } else {
-      renderCards([], username);
-      showStatus('error', `Failed to load: ${err.message}`);
-    }
+    renderCards([], username);
+    showStatus('error', `Failed to load: ${err.message}`);
+  } finally {
+    isLoading = false;
   }
 }
 
