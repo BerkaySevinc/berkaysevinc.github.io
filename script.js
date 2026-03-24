@@ -98,29 +98,45 @@ function escapeHtml(str) {
 }
 
 function renderCards(repos, username) {
-  if (repos.length === 0) {
-    grid.innerHTML = `
-      <div class="empty">
-        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
-          <polyline points="13 2 13 9 20 9"/>
-        </svg>
-        <p>No GitHub Pages projects found.</p>
-      </div>`;
-    return;
+  const hasSkeletons = grid.querySelector('.skeleton-card');
+
+  function insertCards() {
+    if (repos.length === 0) {
+      grid.innerHTML = `
+        <div class="empty">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/>
+            <polyline points="13 2 13 9 20 9"/>
+          </svg>
+          <p>No GitHub Pages projects found.</p>
+        </div>`;
+      return;
+    }
+
+    grid.innerHTML = repos.map((repo, i) => {
+      const url = `https://${username}.github.io/${repo.name}/`;
+      const displayName = escapeHtml(formatRepoName(repo.name));
+      const desc = escapeHtml(repo.description || 'No description');
+      const delay = i * 0.08;
+      return `
+        <a href="${url}" class="card card-enter" style="animation-delay: ${delay}s" data-index="${String(i + 1).padStart(2, '0')}" target="_blank" rel="noopener">
+          <div class="card-content" style="animation-delay: ${delay}s">
+            <div class="card-name">${displayName}<span class="card-arrow">→</span></div>
+            <div class="card-desc">${desc}</div>
+          </div>
+        </a>`;
+    }).join('');
   }
 
-  grid.innerHTML = repos.map((repo, i) => {
-    const url = `https://${username}.github.io/${repo.name}/`;
-    const displayName = escapeHtml(formatRepoName(repo.name));
-    const desc = escapeHtml(repo.description || 'No description');
-    const delay = i * 0.08;
-    return `
-      <a href="${url}" class="card card-enter" style="animation-delay: ${delay}s" data-index="${String(i + 1).padStart(2, '0')}" target="_blank" rel="noopener">
-        <div class="card-name">${displayName}<span class="card-arrow">→</span></div>
-        <div class="card-desc">${desc}</div>
-      </a>`;
-  }).join('');
+  if (hasSkeletons) {
+    grid.classList.add('fade-out');
+    setTimeout(() => {
+      grid.classList.remove('fade-out');
+      insertCards();
+    }, 300);
+  } else {
+    insertCards();
+  }
 }
 
 // Dynamic UI
@@ -130,6 +146,7 @@ function setupUI(username) {
   const footerLink = document.getElementById('footer-link');
   footerLink.href = `https://github.com/${username}`;
   footerLink.querySelector('span').textContent = `github.com/${username}`;
+  footerLink.classList.add('visible');
 
   document.title = `${username} — Projects`;
 }
@@ -144,7 +161,6 @@ async function loadProjects() {
   }
 
   setupUI(username);
-  showSkeletons();
 
   if (!canFetch()) {
     const cached = getCached();
@@ -157,6 +173,8 @@ async function loadProjects() {
     }
     return;
   }
+
+  showSkeletons();
 
   try {
     recordFetch();

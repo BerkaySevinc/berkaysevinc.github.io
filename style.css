@@ -388,9 +388,23 @@ body {
   animation: cardSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  opacity: 0;
+  animation: cardFadeIn 0.6s ease forwards;
+}
+
 @keyframes cardSlideUp {
   to {
     transform: translateY(0);
+  }
+}
+
+@keyframes cardFadeIn {
+  to {
+    opacity: 1;
   }
 }
 
@@ -405,6 +419,11 @@ body {
   gap: 0.75rem;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+  transition: opacity 0.3s ease;
+}
+
+.grid.fade-out .skeleton-card {
+  opacity: 0;
 }
 
 .skeleton-line {
@@ -471,6 +490,12 @@ body {
   padding: 0.5rem 1rem;
   border-radius: 100px;
   transition: all 0.3s ease;
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.footer a.visible {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.8s forwards;
 }
 
 .footer a svg {
