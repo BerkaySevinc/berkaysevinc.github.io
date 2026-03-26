@@ -1,4 +1,4 @@
-# [berkaysevinc.github.io](https://berkaysevinc.github.io)
+# <a href="https://berkaysevinc.github.io" target="_blank">berkaysevinc.github.io</a>
 
 My personal GitHub Pages site — a central hub for all my projects and demos hosted on GitHub Pages.
 </br>
